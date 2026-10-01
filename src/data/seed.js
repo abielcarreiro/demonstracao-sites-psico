@@ -5,7 +5,7 @@
 
 export const defaultSettings = {
   psychologist: {
-    name: 'Dra. Vitória Fernandes',
+    name: 'Dra. Luanna Santos',
     title: 'Psicóloga Clínica',
     crp: 'CRP 13/9256',
     phone: '(83) 98721-6921', // WhatsApp que recebe as confirmações
