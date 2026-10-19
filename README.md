@@ -1,4 +1,4 @@
-# Agenda Psicologia · Luanna Santos
+# Agenda Psicologia · Abiel Carreiro
 
 Aplicação web para uma psicóloga gerenciar agendamentos, prontuários e financeiro.
 Os dados ficam no **Supabase** (PostgreSQL + login), protegidos por Row Level Security.
