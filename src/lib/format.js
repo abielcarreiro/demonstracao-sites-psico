@@ -28,8 +28,8 @@ export const initials = (name = '') => {
 /** Gerador simples de IDs únicos */
 export const uid = (prefix = 'id') => `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`
 
-/** Código curto e legível para o paciente, ex.: "VF-7K2Q" */
-export const bookingCode = () => `VF-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+/** Código curto e legível para o paciente, ex.: "AG-7K2Q" */
+export const bookingCode = () => `AG-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
 
 /** Normaliza texto para busca (sem acentos, minúsculo) */
 export const normalize = (s = '') => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()

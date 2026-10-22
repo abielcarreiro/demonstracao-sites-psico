@@ -25,11 +25,13 @@ export function getAvailableSlots(dateISO, duration, { settings, appointments, b
   const dayBlocks = blocks.filter((b) => b.date === dateISO)
   if (dayBlocks.some((b) => b.allDay)) return []
 
+  // A pausa vale antes e depois de cada sessão: a nova não pode começar logo após
+  // outra nem terminar colada na seguinte (mesma regra de create_public_booking)
   const buffer = settings.bufferMinutes || 0
   const busy = [
     ...appointments
       .filter((a) => a.date === dateISO && OCCUPYING.includes(a.status) && a.id !== ignoreAppointmentId)
-      .map((a) => [timeToMinutes(a.time), timeToMinutes(a.time) + a.duration + buffer]),
+      .map((a) => [timeToMinutes(a.time) - buffer, timeToMinutes(a.time) + a.duration + buffer]),
     ...dayBlocks.map((b) => [timeToMinutes(b.start), timeToMinutes(b.end)]),
   ]
   if (day.breakStart && day.breakEnd) busy.push([timeToMinutes(day.breakStart), timeToMinutes(day.breakEnd)])

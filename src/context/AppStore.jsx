@@ -19,6 +19,9 @@ import {
 
 const StoreContext = createContext(null)
 
+/** Sessões criadas neste painel (não geram aviso de "nova solicitação") */
+export const locallyCreatedAppointments = new Set()
+
 // Versões antigas guardavam tudo no navegador; esses dados não são mais usados
 try {
   localStorage.removeItem('psico-agenda:v2')
@@ -188,6 +191,7 @@ export function AppStoreProvider({ children }) {
   const addAppointment = useCallback(
     (data) => {
       const apt = { id: uid('apt'), code: bookingCode(), paid: false, paymentMethod: '', note: '', reason: '', createdAt: todayISO(), ...data }
+      locallyCreatedAppointments.add(apt.id)
       setState((s) => ({ ...s, appointments: [...s.appointments, apt] }))
       persist(() => supabase.from('appointments').insert(appointmentToRow(apt)))
       return apt
@@ -214,7 +218,7 @@ export function AppStoreProvider({ children }) {
   /**
    * Agendamento feito pelo paciente na página pública.
    * Tudo é validado no servidor (função create_public_booking), que também
-   * reaproveita o cadastro se já existir paciente com o mesmo telefone ou e-mail.
+   * reaproveita o cadastro quando já existe paciente com o mesmo telefone e o mesmo nome.
    * Lança um erro com mensagem amigável e `code` quando não for possível agendar.
    */
   const createPublicBooking = useCallback(

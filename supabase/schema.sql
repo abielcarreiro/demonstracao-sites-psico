@@ -94,6 +94,18 @@ as $$
   select split_part(t, ':', 1)::int * 60 + split_part(t, ':', 2)::int;
 $$;
 
+-- Nome normalizado para comparar cadastros: minúsculas, sem acentos e sem espaços extras
+create or replace function public.norm_name(t text)
+returns text
+language sql immutable
+as $$
+  select regexp_replace(
+    translate(lower(btrim(coalesce(t, ''))),
+      'áàâãäéèêëíìîïóòôõöúùûüçñ',
+      'aaaaaeeeeiiiiooooouuuucn'),
+    '\s+', ' ', 'g');
+$$;
+
 -- Horários ocupados, para a página pública calcular a disponibilidade.
 -- Não expõe nenhum dado de paciente nem o motivo dos bloqueios.
 create or replace function public.public_availability()
@@ -191,6 +203,14 @@ begin
   -- Evita que dois pacientes reservem o mesmo dia ao mesmo tempo
   perform pg_advisory_xact_lock(hashtext('booking:' || p_date::text));
 
+  -- Limite contra abuso: no máximo 3 solicitações pendentes por telefone
+  if (select count(*) from public.appointments a
+      join public.patients p on p.id = a.patient_id
+      where regexp_replace(p.phone, '\D', '', 'g') = v_digits
+        and a.status = 'pendente' and a.date >= v_now::date) >= 3 then
+    raise exception 'limite_agendamentos';
+  end if;
+
   if exists (
     select 1 from public.blocks b
     where b.date = p_date
@@ -199,15 +219,18 @@ begin
     select 1 from public.appointments a
     where a.date = p_date
       and a.status in ('pendente', 'confirmada', 'realizada')
-      and public.hhmm_to_min(a.time) < v_end
+      -- A pausa vale antes e depois de cada sessão
+      and public.hhmm_to_min(a.time) < v_end + v_buffer
       and v_start < public.hhmm_to_min(a.time) + a.duration + v_buffer
   ) then
     raise exception 'horario_indisponivel';
   end if;
 
-  -- Reaproveita o cadastro se o telefone ou e-mail já existir
+  -- Reaproveita o cadastro só quando o telefone E o nome batem. Assim, uma mãe que
+  -- agenda para o filho com o próprio telefone não mistura os prontuários.
   select id into v_patient from public.patients
-  where regexp_replace(phone, '\D', '', 'g') = v_digits or lower(email) = v_email
+  where regexp_replace(phone, '\D', '', 'g') = v_digits
+    and public.norm_name(name) = public.norm_name(v_name)
   order by created_at
   limit 1;
 
@@ -216,16 +239,11 @@ begin
     insert into public.patients (id, name, phone, email, reason, status, source)
     values (v_patient, v_name, btrim(p_phone), v_email, v_reason, 'ativo', 'site');
   else
-    -- Limite contra abuso: no máximo 3 solicitações pendentes por paciente
-    if (select count(*) from public.appointments
-        where patient_id = v_patient and status = 'pendente' and date >= current_date) >= 3 then
-      raise exception 'limite_agendamentos';
-    end if;
     update public.patients set status = 'ativo' where id = v_patient;
   end if;
 
   v_apt  := 'apt_' || substr(md5(random()::text || clock_timestamp()::text), 1, 12);
-  v_code := 'VF-' || upper(substr(md5(random()::text || clock_timestamp()::text), 1, 4));
+  v_code := 'AG-' || upper(substr(md5(random()::text || clock_timestamp()::text), 1, 4));
 
   insert into public.appointments
     (id, patient_id, service_id, service_name, date, time, duration, modality, status, price, reason, code)
