@@ -23,6 +23,21 @@ Os dados ficam no **Supabase** (PostgreSQL + login), protegidos por Row Level Se
 
 A chave *anon* é pública por natureza. Nunca coloque a chave *service_role* no site.
 
+## Modo demonstração (ligado por padrão)
+
+Para o portfólio, o app roda com **dados fictícios no navegador de cada visitante**, sem Supabase:
+- `src/context/DemoAppStore.jsx` oferece a mesma interface do `AppStore` (as telas não mudam), com dados de exemplo em `src/data/demoSeed.js`: 12 pacientes com meses de sessões, anotações, pagamentos e solicitações novas do site.
+- `src/components/demo/DemoBar.jsx` mostra a barra **Demo** (Site · Agendar · Painel · Simular agendamento · Restaurar · Ajuda) e o **tutorial** da primeira visita.
+- Login com um clique na tela do painel. A criptografia dos prontuários é simulada: bloquear e desbloquear funcionam com a senha da demo, mostrada na tela.
+
+| Acesso | Valor |
+|---|---|
+| E-mail / senha do painel | `psicologa@consultorio.demo` · `psico123` |
+| Senha de criptografia | `prontuario123` |
+| Chave de recuperação | `DEMO-2026-PSIC-ABCD` |
+
+Para usar o Supabase de verdade, defina `VITE_DEMO=false` (em `.env.local` e nas variáveis do Cloudflare Pages) e faça um novo build.
+
 ## Desenvolvimento
 
 ```bash

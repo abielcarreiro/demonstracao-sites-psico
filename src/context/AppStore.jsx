@@ -21,7 +21,8 @@ import {
 } from '../lib/supabase'
 import * as vaultCrypto from '../lib/crypto'
 
-const StoreContext = createContext(null)
+// Exportado para o DemoAppStore oferecer a mesma interface sem o Supabase
+export const StoreContext = createContext(null)
 
 /** Colunas guardadas criptografadas no banco */
 const SEALED = { patients: ['reason', 'general_notes'], appointments: ['reason', 'note'] }

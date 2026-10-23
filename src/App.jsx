@@ -10,7 +10,10 @@
  */
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppStoreProvider } from './context/AppStore'
+import { DemoAppStoreProvider } from './context/DemoAppStore'
 import { ToastProvider } from './components/ui'
+import DemoBar from './components/demo/DemoBar'
+import { DEMO } from './lib/demo'
 import BookingPage from './pages/BookingPage'
 import AdminLayout from './pages/admin/AdminLayout'
 import Dashboard from './pages/admin/Dashboard'
@@ -20,10 +23,13 @@ import PatientProfile from './pages/admin/PatientProfile'
 import Financials from './pages/admin/Financials'
 import Settings from './pages/admin/Settings'
 
+// Demonstração: dados no navegador do visitante; produção (VITE_DEMO=false): Supabase
+const StoreProvider = DEMO ? DemoAppStoreProvider : AppStoreProvider
+
 export default function App() {
   return (
     <ToastProvider>
-      <AppStoreProvider>
+      <StoreProvider>
         <HashRouter>
           <Routes>
             <Route path="/" element={<BookingPage />} />
@@ -37,8 +43,9 @@ export default function App() {
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          {DEMO && <DemoBar />}
         </HashRouter>
-      </AppStoreProvider>
+      </StoreProvider>
     </ToastProvider>
   )
 }

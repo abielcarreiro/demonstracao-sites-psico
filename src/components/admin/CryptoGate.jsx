@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import { Check, Copy, Eye, EyeOff, KeyRound, LogOut, RefreshCw, ShieldCheck } from 'lucide-react'
 import { useStore } from '../../context/AppStore'
+import { DEMO, DEMO_VAULT } from '../../lib/demo'
 
 const MIN_LENGTH = 10
 
@@ -205,6 +206,11 @@ function Unlock() {
         {error && <p className="mt-2 text-xs font-medium text-rose-700" role="alert">{error}</p>}
         <button className="btn-primary mt-6 w-full py-3" disabled={busy}>{busy ? 'Abrindo…' : 'Abrir'}</button>
         <button type="button" onClick={() => switchMode('recuperar')} className="mt-3 w-full text-sm font-medium text-ink-500 hover:text-ink-900">Esqueci a senha de criptografia</button>
+        {DEMO && (
+          <p className="mt-4 rounded-xl bg-sage-50 p-3 text-xs leading-relaxed text-ink-700">
+            <b>Demonstração:</b> a senha de criptografia é <code className="rounded bg-white px-1 font-mono">{DEMO_VAULT.passphrase}</code> e a chave de recuperação é <code className="rounded bg-white px-1 font-mono">{DEMO_VAULT.recoveryKey}</code>.
+          </p>
+        )}
       </form>
     </Shell>
   )

@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Eye, EyeOff, Leaf, Lock, Mail } from 'lucide-react'
 import { useStore } from '../../context/AppStore'
+import { DEMO, DEMO_ACCOUNT } from '../../lib/demo'
 
 export default function Login({ notice = '' }) {
   const { signIn, configured } = useStore()
@@ -84,6 +85,28 @@ export default function Login({ notice = '' }) {
           <button className="btn-primary mt-5 w-full py-3" disabled={loading || !configured}>
             {loading ? 'Entrando…' : 'Entrar'}
           </button>
+
+          {DEMO && (
+            <div className="mt-5 rounded-xl border border-dashed border-sage-300 bg-sage-50 p-4">
+              <p className="text-[11px] font-bold tracking-wider text-sage-700 uppercase">Acesso de demonstração</p>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={async () => {
+                  setEmail(DEMO_ACCOUNT.email)
+                  setPassword(DEMO_ACCOUNT.password)
+                  setLoading(true)
+                  const err = await signIn(DEMO_ACCOUNT.email, DEMO_ACCOUNT.password)
+                  setLoading(false)
+                  if (err) setError(err)
+                }}
+                className="mt-2 w-full rounded-lg bg-white px-3 py-2.5 text-left text-sm ring-1 ring-sage-200 transition hover:ring-sage-400"
+              >
+                <span className="font-semibold text-ink-900">Entrar como psicóloga</span>
+                <span className="mt-0.5 block font-mono text-xs text-ink-500">{DEMO_ACCOUNT.email} · {DEMO_ACCOUNT.password}</span>
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>

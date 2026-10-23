@@ -13,6 +13,7 @@ import { getBookableDays } from '../lib/availability'
 import { formatLongDate } from '../lib/date'
 import { formatBRL } from '../lib/format'
 import { whatsappLink } from '../lib/whatsapp'
+import { DEMO } from '../lib/demo'
 
 const SERVICE_ICONS = { Sparkles, User, Users }
 
@@ -456,7 +457,7 @@ function FloatingWhatsApp({ phone }) {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Conversar no WhatsApp"
-      className="fixed right-5 bottom-5 z-30 flex size-14 items-center justify-center rounded-full bg-[#1f9d55] text-white shadow-lift transition hover:scale-105"
+      className={`fixed right-5 ${DEMO ? 'bottom-24' : 'bottom-5'} z-30 flex size-14 items-center justify-center rounded-full bg-[#1f9d55] text-white shadow-lift transition hover:scale-105`}
     >
       <MessageCircle size={26} />
     </a>
