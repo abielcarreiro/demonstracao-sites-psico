@@ -245,7 +245,7 @@ function DemoBanner() {
   return (
     <div className="bg-ink-900 px-4 py-2 text-center text-xs text-cream-50 sm:text-sm">
       Site de demonstração com dados fictícios, criado por{' '}
-      <a href="https://abiel-carreiro.pages.dev/" className="font-semibold underline underline-offset-2">Abiel Carreiro</a>.
+      <a href="https://abielcarreiro.pages.dev/" className="font-semibold underline underline-offset-2">Abiel Carreiro</a>.
       {' '}Os agendamentos feitos aqui não são atendidos.
     </div>
   )
