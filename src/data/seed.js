@@ -5,7 +5,7 @@
 
 export const defaultSettings = {
   psychologist: {
-    name: 'Marina Lopes',
+    name: 'Abiel Carreiro',
     title: 'Psicóloga Clínica',
     crp: 'CRP 00/0000',
     phone: '(83) 98721-6921', // WhatsApp que recebe as confirmações
