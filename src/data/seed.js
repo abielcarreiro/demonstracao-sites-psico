@@ -5,13 +5,13 @@
 
 export const defaultSettings = {
   psychologist: {
-    name: 'Abiel Carreiro',
+    name: 'Marina Lopes',
     title: 'Psicóloga Clínica',
     crp: 'CRP 00/0000',
     phone: '(83) 98721-6921', // WhatsApp que recebe as confirmações
-    email: 'contato@vitoriafernandes.com.br',
+    email: 'abielcarreiro@gmail.com',
     address: 'Av. Epitácio Pessoa, 1200 — Sala 804, Tambaú, João Pessoa/PB',
-    instagram: '@vitoriafernandes.psi',
+    instagram: '',
   },
   services: [
     {

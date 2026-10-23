@@ -47,6 +47,7 @@ export default function BookingPage() {
 
   return (
     <div className="min-h-screen overflow-x-clip" onClick={onAnchorClick}>
+      <DemoBanner />
       <SiteHeader name={psychologist.name} />
       <main>
         <Hero />
@@ -160,9 +161,9 @@ function Hero() {
           </div>
           <dl className="mt-10 flex flex-wrap gap-x-10 gap-y-4">
             {[
-              ['10+', 'anos de experiência'],
-              ['1.200+', 'sessões realizadas'],
-              ['4,9 ★', 'avaliação dos pacientes'],
+              ['Presencial', 'e online'],
+              ['50 min', 'sessão individual'],
+              ['Sigilo', 'profissional garantido'],
             ].map(([v, l]) => (
               <div key={l}>
                 <dt className="sr-only">{l}</dt>
@@ -239,6 +240,17 @@ function SectionTitle({ eyebrow, title, text, center }) {
   )
 }
 
+/** Faixa que avisa que este é um site de demonstração, com dados fictícios */
+function DemoBanner() {
+  return (
+    <div className="bg-ink-900 px-4 py-2 text-center text-xs text-cream-50 sm:text-sm">
+      Site de demonstração com dados fictícios, criado por{' '}
+      <a href="https://abiel-carreiro.pages.dev/" className="font-semibold underline underline-offset-2">Abiel Carreiro</a>.
+      {' '}Os agendamentos feitos aqui não são atendidos.
+    </div>
+  )
+}
+
 function About({ psychologist }) {
   return (
     <section id="sobre" className="scroll-mt-20 py-20">
@@ -251,7 +263,7 @@ function About({ psychologist }) {
               e formação em Terapia Focada nas Emoções para casais.
             </p>
             <p>
-              Há mais de dez anos acompanho pessoas em momentos de ansiedade, tristeza, transições de vida, luto e conflitos nos
+              Acompanho pessoas em momentos de ansiedade, tristeza, transições de vida, luto e conflitos nos
               relacionamentos. Acredito que a terapia é um encontro humano — um lugar onde você pode ser quem é, sem julgamentos.
             </p>
           </div>
