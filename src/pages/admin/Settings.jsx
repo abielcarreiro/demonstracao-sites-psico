@@ -2,9 +2,10 @@
  * Configurações: perfil, horário de expediente, regras de agendamento, serviços, bloqueios e dados.
  */
 import { useState } from 'react'
-import { Ban, Clock, Database, Download, Plus, Save, Sliders, Stethoscope, Trash2, UserRound } from 'lucide-react'
+import { Ban, Clock, Database, Download, Lock, Plus, Save, ShieldCheck, Sliders, Stethoscope, Trash2, UserRound } from 'lucide-react'
 import { useStore } from '../../context/AppStore'
 import BlockModal from '../../components/admin/BlockModal'
+import { checkNewPassphrase } from '../../components/admin/CryptoGate'
 import { EmptyState, PageHeader, useToast } from '../../components/ui'
 import { formatLongDate, todayISO, WEEKDAYS_LONG } from '../../lib/date'
 import { maskPhone, uid } from '../../lib/format'
@@ -240,15 +241,88 @@ export default function Settings() {
           )}
         </section>
 
+        <EncryptionSection />
+
         {/* Dados */}
         <Section icon={Database} title="Dados e backup" description="Os dados ficam salvos no banco de dados (Supabase). Baixe um backup de vez em quando.">
           <div className="flex flex-wrap gap-3">
             <button className="btn-secondary" onClick={store.exportData}><Download size={16} /> Baixar backup (JSON)</button>
           </div>
+          <p className="mt-3 text-xs text-ink-500">O backup sai com os textos clínicos abertos, para você conseguir lê-lo. Guarde o arquivo em local protegido e apague cópias que não usar.</p>
         </Section>
       </div>
 
       <BlockModal open={blocking} onClose={() => setBlocking(false)} />
     </>
+  )
+}
+
+/** Criptografia dos prontuários: situação e troca da senha de criptografia */
+function EncryptionSection() {
+  const { vaultStatus, changeVaultPassphrase, lockVault } = useStore()
+  const toast = useToast()
+  const [form, setForm] = useState({ current: '', next: '', confirm: '' })
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const set = (k) => (e) => {
+    setForm({ ...form, [k]: e.target.value })
+    setError('')
+  }
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!form.current) return setError('Digite a senha de criptografia atual.')
+    const msg = checkNewPassphrase(form.next, form.confirm)
+    if (msg) return setError(msg)
+    setBusy(true)
+    try {
+      await changeVaultPassphrase(form.current, form.next)
+      setForm({ current: '', next: '', confirm: '' })
+      toast('Senha de criptografia alterada')
+    } catch (err) {
+      if (err?.code !== 'senha_incorreta') console.error(err)
+      setError(err?.code === 'senha_incorreta' ? 'A senha atual está incorreta.' : 'Não foi possível alterar. Tente de novo.')
+    }
+    setBusy(false)
+  }
+
+  if (vaultStatus !== 'unlocked') {
+    return (
+      <Section icon={ShieldCheck} title="Criptografia dos prontuários">
+        <p className="text-sm text-rose-700">A criptografia ainda não está ativa. Rode o arquivo <code>supabase/criptografia.sql</code> no Supabase e entre de novo no painel.</p>
+      </Section>
+    )
+  }
+
+  return (
+    <Section
+      icon={ShieldCheck}
+      title="Criptografia dos prontuários"
+      description="Motivos, observações e anotações das sessões ficam guardados criptografados e só abrem com a sua senha de criptografia."
+    >
+      <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+        <div className="space-y-3 text-sm text-ink-700">
+          <p className="flex items-center gap-2 font-semibold text-sage-700"><ShieldCheck size={16} /> Ativa neste painel</p>
+          <p className="text-ink-500">Os prontuários se fecham sozinhos depois de 30 minutos sem uso e quando você sai. Nome, telefone, e-mail, datas e valores continuam sem criptografia, porque a agenda precisa deles para funcionar.</p>
+          <p className="text-ink-500">Se esquecer a senha, use a chave de recuperação na tela de abertura (“Esqueci a senha de criptografia”).</p>
+          <button className="btn-secondary" onClick={lockVault}><Lock size={16} /> Bloquear agora</button>
+        </div>
+        <form onSubmit={submit} noValidate>
+          <h3 className="text-sm font-semibold">Trocar a senha de criptografia</h3>
+          {[
+            ['current', 'Senha atual', 'off'],
+            ['next', 'Nova senha', 'new-password'],
+            ['confirm', 'Repita a nova senha', 'new-password'],
+          ].map(([k, l, ac]) => (
+            <div key={k} className="mt-3">
+              <label className="label" htmlFor={`enc-${k}`}>{l}</label>
+              <input id={`enc-${k}`} type="password" className="input" value={form[k]} onChange={set(k)} autoComplete={ac} />
+            </div>
+          ))}
+          {error && <p className="mt-2 text-xs font-medium text-rose-700" role="alert">{error}</p>}
+          <button className="btn-primary mt-4" disabled={busy}><Save size={16} /> {busy ? 'Salvando…' : 'Trocar senha'}</button>
+        </form>
+      </div>
+    </Section>
   )
 }

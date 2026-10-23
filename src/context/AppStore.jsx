@@ -7,6 +7,9 @@
  *   na ordem em que foram feitas. Se uma gravação falhar, avisa e recarrega do banco.
  * - Os dados do painel são recarregados ao voltar para a aba e a cada minuto,
  *   para que agendamentos feitos pelo site apareçam sem precisar atualizar a página.
+ * - Os textos clínicos (motivo, observações, anotações) são gravados criptografados
+ *   (ver lib/crypto.js) e só são abertos aqui, depois que a psicóloga digita a senha
+ *   de criptografia. Textos antigos sem criptografia são convertidos automaticamente.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { createInitialData, defaultSettings } from '../data/seed'
@@ -16,8 +19,27 @@ import { todayISO } from '../lib/date'
 import {
   appointmentFromRow, appointmentToRow, blockFromRow, blockToRow, fetchAll, patientFromRow, patientToRow, supabase,
 } from '../lib/supabase'
+import * as vaultCrypto from '../lib/crypto'
 
 const StoreContext = createContext(null)
+
+/** Colunas guardadas criptografadas no banco */
+const SEALED = { patients: ['reason', 'general_notes'], appointments: ['reason', 'note'] }
+
+/** Abre os campos criptografados de uma linha; sem a chave, eles ficam vazios */
+async function openRow(table, row, unlocked) {
+  const out = { ...row }
+  for (const col of SEALED[table]) {
+    if (!vaultCrypto.isEncrypted(out[col])) continue
+    try {
+      out[col] = unlocked ? await vaultCrypto.decryptText(out[col]) : ''
+    } catch (err) {
+      console.error(err)
+      out[col] = ''
+    }
+  }
+  return out
+}
 
 /** Sessões criadas neste painel (não geram aviso de "nova solicitação") */
 export const locallyCreatedAppointments = new Set()
@@ -64,6 +86,13 @@ export function AppStoreProvider({ children }) {
   const writeVersion = useRef(0)
   const loadRequest = useRef(0)
 
+  /* ---------------------------- Criptografia ----------------------------- */
+  // status: idle (visitante) | missing (tabela não criada) | setup | locked | unlocked
+  const [vault, setVault] = useState({ status: 'idle' })
+  const [recoveryToShow, setRecoveryToShow] = useState('')
+  const keyRow = useRef(null)
+  const afterLoad = useRef(null)
+
   const reload = useCallback(async () => {
     if (!supabase) return
     const request = ++loadRequest.current
@@ -79,14 +108,26 @@ export function AppStoreProvider({ children }) {
       const isAdmin = adminRes.data === true
 
       let next
+      let raw = null
+      let vaultStatus = 'idle'
       if (isAdmin) {
-        const [patients, appointments, blocks] = await Promise.all([fetchAll('patients'), fetchAll('appointments'), fetchAll('blocks')])
+        const [patients, appointments, blocks, keyRes] = await Promise.all([
+          fetchAll('patients'),
+          fetchAll('appointments'),
+          fetchAll('blocks'),
+          supabase.from('crypto_keys').select('*').eq('id', 1).maybeSingle(),
+        ])
+        if (keyRes.error) console.error(keyRes.error)
+        keyRow.current = keyRes.error ? null : keyRes.data
+        vaultStatus = keyRes.error ? 'missing' : !keyRes.data ? 'setup' : vaultCrypto.isUnlocked() ? 'unlocked' : 'locked'
+        const unlocked = vaultStatus === 'unlocked'
         next = {
           settings,
-          patients: patients.map(patientFromRow),
-          appointments: appointments.map(appointmentFromRow),
+          patients: (await Promise.all(patients.map((r) => openRow('patients', r, unlocked)))).map(patientFromRow),
+          appointments: (await Promise.all(appointments.map((r) => openRow('appointments', r, unlocked)))).map(appointmentFromRow),
           blocks: blocks.map(blockFromRow),
         }
+        if (unlocked) raw = { patients, appointments }
       } else {
         const { data, error } = await supabase.rpc('public_availability')
         if (error) throw error
@@ -103,7 +144,9 @@ export function AppStoreProvider({ children }) {
       if (request !== loadRequest.current) return
       if (pendingWrites.current > 0 || version !== writeVersion.current) return
       setState(next)
+      setVault({ status: vaultStatus })
       setLoaded({ user: userId, isAdmin, failed: false })
+      if (raw) afterLoad.current?.(raw)
     } catch (err) {
       console.error(err)
       if (request !== loadRequest.current) return
@@ -155,23 +198,54 @@ export function AppStoreProvider({ children }) {
     [toast, reload],
   )
 
+  /** Criptografa os campos clínicos antes de gravar (basta a chave pública) */
+  const sealRow = useCallback(async (table, row) => {
+    const key = keyRow.current?.public_jwk
+    if (!key) return row
+    const out = { ...row }
+    for (const col of SEALED[table]) {
+      if (typeof out[col] === 'string' && out[col] && !vaultCrypto.isEncrypted(out[col])) out[col] = await vaultCrypto.encryptText(out[col], key)
+    }
+    return out
+  }, [])
+
+  // Converte textos antigos, gravados antes da criptografia, assim que os prontuários são abertos
+  const migrating = useRef(false)
+  afterLoad.current = (raw) => {
+    if (migrating.current || !keyRow.current) return
+    const todo = []
+    for (const table of ['patients', 'appointments']) {
+      for (const row of raw[table]) {
+        const plain = SEALED[table].filter((c) => typeof row[c] === 'string' && row[c] && !vaultCrypto.isEncrypted(row[c]))
+        if (plain.length) todo.push([table, row.id, Object.fromEntries(plain.map((c) => [c, row[c]]))])
+      }
+    }
+    if (!todo.length) return
+    migrating.current = true
+    for (const [table, id, patch] of todo) persist(async () => supabase.from(table).update(await sealRow(table, patch)).eq('id', id))
+    persist(async () => {
+      migrating.current = false
+      return {}
+    })
+  }
+
   /* ------------------------------ Pacientes ------------------------------ */
   const addPatient = useCallback(
     (data) => {
       const patient = { id: uid('pat'), status: 'ativo', source: 'manual', generalNotes: '', createdAt: todayISO(), ...data }
       setState((s) => ({ ...s, patients: [...s.patients, patient] }))
-      persist(() => supabase.from('patients').insert(patientToRow(patient)))
+      persist(async () => supabase.from('patients').insert(await sealRow('patients', patientToRow(patient))))
       return patient
     },
-    [persist],
+    [persist, sealRow],
   )
 
   const updatePatient = useCallback(
     (id, patch) => {
       setState((s) => ({ ...s, patients: s.patients.map((p) => (p.id === id ? { ...p, ...patch } : p)) }))
-      persist(() => supabase.from('patients').update(patientToRow(patch)).eq('id', id))
+      persist(async () => supabase.from('patients').update(await sealRow('patients', patientToRow(patch))).eq('id', id))
     },
-    [persist],
+    [persist, sealRow],
   )
 
   const deletePatient = useCallback(
@@ -193,18 +267,18 @@ export function AppStoreProvider({ children }) {
       const apt = { id: uid('apt'), code: bookingCode(), paid: false, paymentMethod: '', note: '', reason: '', createdAt: todayISO(), ...data }
       locallyCreatedAppointments.add(apt.id)
       setState((s) => ({ ...s, appointments: [...s.appointments, apt] }))
-      persist(() => supabase.from('appointments').insert(appointmentToRow(apt)))
+      persist(async () => supabase.from('appointments').insert(await sealRow('appointments', appointmentToRow(apt))))
       return apt
     },
-    [persist],
+    [persist, sealRow],
   )
 
   const updateAppointment = useCallback(
     (id, patch) => {
       setState((s) => ({ ...s, appointments: s.appointments.map((a) => (a.id === id ? { ...a, ...patch } : a)) }))
-      persist(() => supabase.from('appointments').update(appointmentToRow(patch)).eq('id', id))
+      persist(async () => supabase.from('appointments').update(await sealRow('appointments', appointmentToRow(patch))).eq('id', id))
     },
-    [persist],
+    [persist, sealRow],
   )
 
   const deleteAppointment = useCallback(
@@ -224,6 +298,17 @@ export function AppStoreProvider({ children }) {
   const createPublicBooking = useCallback(
     async ({ service, date, time, modality, name, phone, email, reason }) => {
       if (!supabase) throw Object.assign(new Error('Agendamento indisponível no momento. Tente pelo WhatsApp.'), { code: 'offline' })
+      // O motivo sai daqui já criptografado: só a psicóloga consegue ler
+      const publicKey = stateRef.current.settings.encryptionPublicKey
+      let sealedReason = reason?.trim() || ''
+      if (sealedReason && publicKey && vaultCrypto.cryptoSupported()) {
+        try {
+          sealedReason = await vaultCrypto.encryptText(sealedReason, publicKey)
+        } catch (err) {
+          // Sem criptografia aqui, o texto é convertido quando a psicóloga abrir o painel
+          console.error(err)
+        }
+      }
       const { data, error } = await supabase.rpc('create_public_booking', {
         p_service_id: service.id,
         p_date: date,
@@ -232,7 +317,7 @@ export function AppStoreProvider({ children }) {
         p_name: name,
         p_phone: phone,
         p_email: email,
-        p_reason: reason,
+        p_reason: sealedReason,
       })
       if (error) {
         const code = Object.keys(BOOKING_ERRORS).find((k) => error.message?.includes(k))
@@ -290,8 +375,74 @@ export function AppStoreProvider({ children }) {
   }, [])
 
   const signOut = useCallback(async () => {
+    vaultCrypto.lock()
     await supabase?.auth.signOut()
   }, [])
+
+  /* ----------------------- Senha de criptografia ------------------------- */
+  /** Primeira vez: cria as chaves e devolve a chave de recuperação (mostrada uma vez) */
+  const setupEncryption = useCallback(
+    async (passphrase) => {
+      const k = await vaultCrypto.createKeys(passphrase)
+      const row = { id: 1, public_jwk: k.publicJwk, wrapped_password: k.wrappedPassword, wrapped_recovery: k.wrappedRecovery }
+      const { error } = await supabase.from('crypto_keys').insert(row)
+      if (error) {
+        vaultCrypto.lock()
+        throw error
+      }
+      keyRow.current = row
+      setRecoveryToShow(k.recoveryKey)
+      updateSettings({ encryptionPublicKey: k.publicJwk })
+      return k.recoveryKey
+    },
+    [updateSettings],
+  )
+
+  const finishSetup = useCallback(() => {
+    setRecoveryToShow('')
+    reload()
+  }, [reload])
+
+  /** Lança erro com code "senha_incorreta" quando a senha não confere */
+  const unlockVault = useCallback(
+    async (passphrase) => {
+      await vaultCrypto.unlockWithPassphrase(keyRow.current, passphrase)
+      await reload()
+    },
+    [reload],
+  )
+
+  /** Esqueceu a senha: abre com a chave de recuperação e define uma senha nova */
+  const recoverVault = useCallback(
+    async (recoveryKey, newPassphrase) => {
+      const wrapped = await vaultCrypto.unlockWithRecovery(keyRow.current, recoveryKey, newPassphrase)
+      const { error } = await supabase.from('crypto_keys').update({ wrapped_password: wrapped, updated_at: new Date().toISOString() }).eq('id', 1)
+      if (error) throw error
+      keyRow.current = { ...keyRow.current, wrapped_password: wrapped }
+      await reload()
+    },
+    [reload],
+  )
+
+  const changeVaultPassphrase = useCallback(async (current, next) => {
+    const wrapped = await vaultCrypto.rewrapWithNewPassphrase(keyRow.current, current, next)
+    const { error } = await supabase.from('crypto_keys').update({ wrapped_password: wrapped, updated_at: new Date().toISOString() }).eq('id', 1)
+    if (error) throw error
+    keyRow.current = { ...keyRow.current, wrapped_password: wrapped }
+  }, [])
+
+  const lockVault = useCallback(() => {
+    vaultCrypto.lock()
+    setVault({ status: 'locked' })
+    reload()
+  }, [reload])
+
+  // Garante que a página pública use a chave certa para criptografar o motivo
+  const publicKeyX = state.settings.encryptionPublicKey?.x
+  useEffect(() => {
+    const key = keyRow.current?.public_jwk
+    if (vault.status === 'unlocked' && key && publicKeyX !== key.x) updateSettings({ encryptionPublicKey: key })
+  }, [vault.status, publicKeyX, updateSettings])
 
   /** Exporta um backup JSON dos dados */
   const exportData = useCallback(() => {
@@ -326,8 +477,16 @@ export function AppStoreProvider({ children }) {
       removeBlock,
       updateSettings,
       exportData,
+      vaultStatus: vault.status,
+      recoveryToShow,
+      setupEncryption,
+      finishSetup,
+      unlockVault,
+      recoverVault,
+      changeVaultPassphrase,
+      lockVault,
     }),
-    [state, session, isAdmin, sessionKnown, loaded.user, loaded.failed, userId, reload, signIn, signOut, addPatient, updatePatient, deletePatient, addAppointment, updateAppointment, deleteAppointment, createPublicBooking, addBlock, removeBlock, updateSettings, exportData],
+    [state, session, isAdmin, sessionKnown, loaded.user, loaded.failed, userId, reload, signIn, signOut, addPatient, updatePatient, deletePatient, addAppointment, updateAppointment, deleteAppointment, createPublicBooking, addBlock, removeBlock, updateSettings, exportData, vault.status, recoveryToShow, setupEncryption, finishSetup, unlockVault, recoverVault, changeVaultPassphrase, lockVault],
   )
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

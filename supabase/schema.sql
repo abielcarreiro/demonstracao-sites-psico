@@ -67,6 +67,17 @@ create table if not exists public.blocks (
 
 create index if not exists blocks_date_idx on public.blocks (date);
 
+-- Chave do consultório para a criptografia dos prontuários. A chave privada fica
+-- guardada criptografada (pela senha de criptografia e pela chave de recuperação).
+create table if not exists public.crypto_keys (
+  id               int primary key default 1 check (id = 1),
+  public_jwk       jsonb not null,
+  wrapped_password jsonb not null,
+  wrapped_recovery jsonb not null,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+
 -- Quem pode acessar o painel (ids de usuários do Supabase Auth)
 create table if not exists public.admins (
   user_id uuid primary key references auth.users (id) on delete cascade
@@ -164,7 +175,7 @@ begin
   if length(v_name) < 3 or length(v_name) > 120
      or length(v_digits) not between 10 and 13
      or v_email !~ '^[^\s@]+@[^\s@]+\.[^\s@]{2,}$' or length(v_email) > 160
-     or length(v_reason) > 2000
+     or length(v_reason) > 12000
      or coalesce(p_modality, '') not in ('presencial', 'online')
      or coalesce(p_time, '') !~ '^\d{2}:\d{2}$'
      or p_date is null then
@@ -268,9 +279,10 @@ alter table public.patients     enable row level security;
 alter table public.appointments enable row level security;
 alter table public.blocks       enable row level security;
 alter table public.admins       enable row level security;
+alter table public.crypto_keys  enable row level security;
 
 -- Visitantes nunca acessam as tabelas clínicas diretamente
-revoke all on public.patients, public.appointments, public.blocks, public.admins from anon;
+revoke all on public.patients, public.appointments, public.blocks, public.admins, public.crypto_keys from anon;
 
 drop policy if exists "leitura publica" on public.settings;
 create policy "leitura publica" on public.settings
@@ -290,6 +302,10 @@ create policy "admin total" on public.appointments
 
 drop policy if exists "admin total" on public.blocks;
 create policy "admin total" on public.blocks
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "admin total" on public.crypto_keys;
+create policy "admin total" on public.crypto_keys
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
 -- "admins" não tem política: ninguém lê ou altera pelo site, só pelo painel do Supabase.

@@ -3,11 +3,15 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { Bell, BellRing, CalendarDays, ExternalLink, LayoutDashboard, Leaf, LogOut, Menu, Settings, Users, Wallet, X } from 'lucide-react'
+import { Bell, BellRing, CalendarDays, ExternalLink, LayoutDashboard, Leaf, Lock, LogOut, Menu, Settings, Users, Wallet, X } from 'lucide-react'
 import { locallyCreatedAppointments, useStore } from '../../context/AppStore'
 import { Avatar, useToast } from '../../components/ui'
+import CryptoGate from '../../components/admin/CryptoGate'
 import { formatLongDate } from '../../lib/date'
 import Login from './Login'
+
+/** Fecha os prontuários depois de 30 minutos sem uso */
+const AUTO_LOCK_MS = 30 * 60_000
 
 const NAV = [
   { to: '/admin', end: true, icon: LayoutDashboard, label: 'Visão geral' },
@@ -20,10 +24,28 @@ const NAV = [
 export default function AdminLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [denied, setDenied] = useState(false)
-  const { settings, appointments, session, isAdmin, authLoading, loadFailed, reload, signOut } = useStore()
+  const [skipMissing, setSkipMissing] = useState(false)
+  const { settings, appointments, session, isAdmin, authLoading, loadFailed, reload, signOut, vaultStatus, recoveryToShow, lockVault } = useStore()
   const location = useLocation()
   const pendingCount = appointments.filter((a) => a.status === 'pendente').length
   const avisos = useNewBookingAlerts()
+
+  // Bloqueio automático por inatividade
+  useEffect(() => {
+    if (vaultStatus !== 'unlocked') return
+    let timer
+    const arm = () => {
+      clearTimeout(timer)
+      timer = setTimeout(lockVault, AUTO_LOCK_MS)
+    }
+    const events = ['pointerdown', 'keydown', 'scroll']
+    events.forEach((e) => window.addEventListener(e, arm, { passive: true }))
+    arm()
+    return () => {
+      clearTimeout(timer)
+      events.forEach((e) => window.removeEventListener(e, arm))
+    }
+  }, [vaultStatus, lockVault])
 
   // Conta sem permissão de acesso ao painel: sai e avisa
   useEffect(() => {
@@ -57,6 +79,9 @@ export default function AdminLayout() {
     )
   }
   if (!session) return <Login notice={denied ? 'Esta conta não tem acesso ao painel.' : ''} />
+  if (recoveryToShow || (vaultStatus !== 'unlocked' && !(vaultStatus === 'missing' && skipMissing))) {
+    return <CryptoGate onSkipMissing={() => setSkipMissing(true)} />
+  }
 
   const nav = (
     <nav className="flex flex-col gap-1" aria-label="Painel">
@@ -110,6 +135,11 @@ export default function AdminLayout() {
         <a href="#/" target="_blank" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-sage-100 hover:bg-white/10">
           <ExternalLink size={18} /> Ver página pública
         </a>
+        {vaultStatus === 'unlocked' && (
+          <button onClick={lockVault} title="Fecha os textos clínicos até você digitar a senha de criptografia de novo" className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-sage-100 hover:bg-white/10">
+            <Lock size={18} /> Bloquear prontuários
+          </button>
+        )}
         <button onClick={logout} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-sage-100 hover:bg-white/10">
           <LogOut size={18} /> Sair
         </button>

@@ -17,6 +17,9 @@ Os dados ficam no **Supabase** (PostgreSQL + login), protegidos por Row Level Se
 6. Em **Project Settings → API**, copie a *Project URL* e a chave *anon public* para:
    - `.env.local` (desenvolvimento). Veja o modelo em `.env.example`.
    - Cloudflare Pages → **Settings → Variables and Secrets**: `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`. Depois, faça um novo deploy.
+7. No primeiro acesso ao painel, a psicóloga cria a **senha de criptografia** e guarda a **chave de recuperação** (veja "Criptografia dos prontuários").
+
+**Banco já em uso, criado antes da criptografia?** Rode também [`supabase/criptografia.sql`](supabase/criptografia.sql) no SQL Editor. Os textos antigos são criptografados sozinhos no primeiro acesso depois disso.
 
 A chave *anon* é pública por natureza. Nunca coloque a chave *service_role* no site.
 
@@ -69,6 +72,18 @@ supabase/schema.sql          # tabelas, regras de acesso (RLS) e funções de ag
 
 - Visitantes só leem as configurações públicas e os horários ocupados, sem nenhum dado de paciente. Eles criam agendamentos pela função `create_public_booking`, que revalida serviço, expediente, antecedência, bloqueios e conflitos no servidor e limita cada paciente a 3 solicitações pendentes.
 - Pacientes, sessões, anotações e financeiro só são acessíveis para usuários cadastrados na tabela `admins`.
-- Dados de saúde são **dados sensíveis** pela LGPD. Use uma senha forte, ative backups no Supabase (plano pago) ou baixe o backup JSON em **Configurações** com frequência.
+- Dados de saúde são **dados sensíveis** pela LGPD. Use uma senha forte, ative o login em duas etapas na sua conta do Supabase e ative backups no Supabase (plano pago) ou baixe o backup JSON em **Configurações** com frequência.
+
+### Criptografia dos prontuários
+
+Os textos clínicos (`patients.reason`, `patients.general_notes`, `appointments.reason`, `appointments.note`) são criptografados **de ponta a ponta** no navegador ([`src/lib/crypto.js`](src/lib/crypto.js), só Web Crypto). Nem o Supabase nem quem administra o banco conseguem lê-los.
+
+- O consultório tem um par de chaves ECDH P-256. A chave pública fica nas configurações públicas, e o navegador do paciente criptografa o "motivo" antes de enviar o agendamento.
+- A chave privada fica na tabela `crypto_keys`, guardada criptografada duas vezes: com a senha de criptografia (PBKDF2-SHA256, 600 mil iterações + AES-GCM) e com a chave de recuperação.
+- Cada texto usa uma chave temporária (ECDH efêmero → HKDF → AES-256-GCM) e é gravado como `enc1:…`.
+- No painel, a psicóloga digita a senha de criptografia depois do login. A chave aberta fica só na memória da aba, que se fecha ao sair, com o botão "Bloquear prontuários" ou após 30 minutos sem uso.
+- **Se a senha e a chave de recuperação forem perdidas, os textos não podem ser recuperados.**
+- Continuam sem criptografia (a agenda precisa deles): nome, telefone, e-mail, datas, horários, valores e o motivo dos bloqueios de agenda.
+- O backup JSON de Configurações sai com os textos abertos. Guarde-o em local protegido.
 
 Deploy: Cloudflare Pages com build `npm run build` e saída `dist`. As rotas usam `#`, então não precisa de configuração extra.
