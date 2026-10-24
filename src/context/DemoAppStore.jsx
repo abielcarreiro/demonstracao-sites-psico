@@ -17,7 +17,7 @@ import { bookingCode, normalize, onlyDigits, uid } from '../lib/format'
 import { DEMO_ACCOUNT, DEMO_VAULT } from '../lib/demo'
 import { locallyCreatedAppointments, StoreContext } from './AppStore'
 
-const KEY = 'psico-demo:v1'
+const KEY = 'psico-demo:v2' // v2: a demonstração passou a começar sem pacientes nem sessões
 const SESSION_KEY = 'psico-demo:sessao'
 const VAULT_KEY = 'psico-demo:senha-prontuarios'
 const DEMO_USER = { id: 'demo-psicologa', email: DEMO_ACCOUNT.email }
@@ -228,7 +228,7 @@ export function DemoAppStoreProvider({ children }) {
     URL.revokeObjectURL(a.href)
   }, [])
 
-  /** Volta aos dados de exemplo (barra Demo) */
+  /** Apaga tudo e começa do zero (barra Demo) */
   const resetDemo = useCallback(() => {
     write(VAULT_KEY, null)
     const fresh = createSeedData()

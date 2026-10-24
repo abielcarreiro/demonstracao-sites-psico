@@ -26,8 +26,8 @@ A chave *anon* é pública por natureza. Nunca coloque a chave *service_role* no
 ## Modo demonstração (ligado por padrão)
 
 Para o portfólio, o app roda com **dados fictícios no navegador de cada visitante**, sem Supabase:
-- `src/context/DemoAppStore.jsx` oferece a mesma interface do `AppStore` (as telas não mudam), com dados de exemplo em `src/data/demoSeed.js`: 12 pacientes com meses de sessões, anotações, pagamentos e solicitações novas do site.
-- `src/components/demo/DemoBar.jsx` mostra a barra **Demo** (Site · Agendar · Painel · Simular agendamento · Restaurar · Ajuda) e o **tutorial** da primeira visita.
+- `src/context/DemoAppStore.jsx` oferece a mesma interface do `AppStore` (as telas não mudam), começando só com as configurações do consultório (sem pacientes nem sessões), para testar do zero.
+- `src/components/demo/DemoBar.jsx` mostra a barra **Demo** (Site · Agendar · Painel · Simular agendamento · Começar do zero · Ajuda) e o **tutorial** da primeira visita.
 - Login com um clique na tela do painel. A criptografia dos prontuários é simulada: bloquear e desbloquear funcionam com a senha da demo, mostrada na tela.
 
 | Acesso | Valor |

@@ -1,6 +1,6 @@
 /**
  * Barra flutuante e tutorial da demonstração (portfólio).
- * Leva do site ao painel, simula pedidos de agendamento e restaura os dados.
+ * Leva do site ao painel, simula pedidos de agendamento e apaga tudo para começar do zero.
  */
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
@@ -21,7 +21,7 @@ const seen = () => {
 const STEPS = [
   { icon: CalendarPlus, title: 'Agende como paciente', text: 'Em Agendar, escolha o serviço, presencial ou online, um horário livre e preencha seus dados. No fim aparece a mensagem pronta para o WhatsApp.' },
   { icon: LayoutDashboard, title: 'Abra o painel', text: 'Clique em Painel e entre com um clique. A sua solicitação aparece na visão geral, esperando confirmação.' },
-  { icon: ClipboardList, title: 'Explore a rotina da psicóloga', text: 'Confirme pedidos, veja a agenda por dia, semana ou mês, abra o prontuário de um paciente e registre pagamentos no financeiro.' },
+  { icon: ClipboardList, title: 'Explore a rotina da psicóloga', text: 'Confirme o pedido, veja a agenda por dia, semana ou mês, abra o prontuário do paciente, anote a sessão e registre o pagamento no financeiro.' },
   { icon: Lock, title: 'Prontuários protegidos', text: 'Os textos clínicos ficam criptografados. Clique em "Bloquear prontuários" no menu e desbloqueie com a senha mostrada na tela.' },
 ]
 
@@ -76,7 +76,7 @@ export function DemoTutorial({ open, onClose }) {
         <b>Acesso restrito:</b> o painel é só da psicóloga, com login e senha próprios. No sistema real, o paciente vê apenas o site e o agendamento; a barra Demo existe só para você conhecer tudo.
       </p>
       <p className="mt-3 rounded-xl bg-cream-100 p-4 text-sm leading-relaxed text-ink-700">
-        <b>Simular agendamento</b> cria um pedido de um paciente fictício, como se alguém tivesse agendado pelo site agora. O botão ↺ restaura os dados de exemplo. Tudo fica só no seu navegador: ninguém vê o seu teste.
+        <b>Simular agendamento</b> cria um pedido de um paciente fictício, como se alguém tivesse agendado pelo site agora. A demonstração começa vazia, e o botão ↺ apaga tudo para começar do zero. Tudo fica só no seu navegador: ninguém vê o seu teste.
       </p>
     </Modal>
   )
@@ -133,12 +133,12 @@ export default function DemoBar() {
             </button>
             <button
               className="grid size-9 shrink-0 place-items-center rounded-xl text-sage-100 transition hover:bg-white/10 hover:text-white"
-              title="Restaurar dados de exemplo"
-              aria-label="Restaurar dados de exemplo"
+              title="Apagar tudo e começar do zero"
+              aria-label="Apagar tudo e começar do zero"
               onClick={() => {
-                if (!confirm('Apagar o que você fez e restaurar os dados de exemplo?')) return
+                if (!confirm('Apagar todos os pacientes, sessões e bloqueios e começar do zero?')) return
                 resetDemo()
-                toast('Demonstração restaurada.')
+                toast('Tudo apagado: começando do zero.')
               }}
             >
               <RotateCcw size={16} />
