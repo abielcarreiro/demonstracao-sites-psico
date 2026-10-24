@@ -72,7 +72,10 @@ export function DemoTutorial({ open, onClose }) {
           </li>
         ))}
       </ol>
-      <p className="mt-5 rounded-xl bg-cream-100 p-4 text-sm leading-relaxed text-ink-700">
+      <p className="mt-5 rounded-xl bg-sage-50 p-4 text-sm leading-relaxed text-ink-700">
+        <b>Acesso restrito:</b> o painel é só da psicóloga, com login e senha próprios. No sistema real, o paciente vê apenas o site e o agendamento; a barra Demo existe só para você conhecer tudo.
+      </p>
+      <p className="mt-3 rounded-xl bg-cream-100 p-4 text-sm leading-relaxed text-ink-700">
         <b>Simular agendamento</b> cria um pedido de um paciente fictício, como se alguém tivesse agendado pelo site agora. O botão ↺ restaura os dados de exemplo. Tudo fica só no seu navegador: ninguém vê o seu teste.
       </p>
     </Modal>

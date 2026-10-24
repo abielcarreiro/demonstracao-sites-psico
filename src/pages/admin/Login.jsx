@@ -105,6 +105,7 @@ export default function Login({ notice = '' }) {
                 <span className="font-semibold text-ink-900">Entrar como psicóloga</span>
                 <span className="mt-0.5 block font-mono text-xs text-ink-500">{DEMO_ACCOUNT.email} · {DEMO_ACCOUNT.password}</span>
               </button>
+              <p className="mt-3 text-xs leading-relaxed text-ink-500">No sistema real, este painel é só da psicóloga, com login próprio. O paciente usa apenas o site e o agendamento.</p>
             </div>
           )}
         </form>
